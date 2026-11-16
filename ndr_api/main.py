@@ -75,6 +75,9 @@ def current_user(authorization: str | None, session: Session):
 @app.get("/", include_in_schema=False)
 def home(): return RedirectResponse("/portal/")
 
+@app.get("/health")
+def health(): return {"status": "ok", "service": "ndr-automation"}
+
 @app.on_event("startup")
 def startup():
     init_db()

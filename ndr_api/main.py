@@ -282,11 +282,33 @@ async def upload_my_assignments(file: UploadFile = File(...), authorization: str
     feedback_dir = Path("5_Agent_Feedback/Completed_Calling_Sheets"); feedback_dir.mkdir(parents=True, exist_ok=True)
     target = feedback_dir / f"{date.today():%Y%m%d}_{user.username}_{Path(file.filename).name}"
     target.write_bytes(await file.read())
+    frame = pd.read_excel(target, header=1, dtype=object)
+    frame.columns = [str(column).strip().casefold().replace(" ", "_") for column in frame.columns]
+    agent_labels = {"zaffar": "Mohammed Zaffruddin", "narayan": "Narayanaswamy K.V"}
+    assignment_date = working_date(); accepted = rejected = duplicates = 0
+    for _, row in frame.iterrows():
+        docket = normalize_docket(row.get("docketno"))
+        remarks = str(row.get("our_remarks") or "").strip()
+        if not docket or not remarks or remarks.casefold() == "nan": rejected += 1; continue
+        raw_agent = str(row.get("agent_for_ndr") or user.display_name).strip()
+        agent = agent_labels.get(raw_agent.casefold(), raw_agent)
+        if user.role != "admin" and agent.casefold() != user.display_name.casefold(): rejected += 1; continue
+        disposition = "OTHER"
+        if remarks.startswith("[") and "]" in remarks:
+            disposition, remarks = remarks[1:].split("]", 1); disposition = disposition.strip().upper(); remarks = remarks.strip()
+        order = session.scalar(select(Order).where(Order.docket_no == docket))
+        assignment = session.scalar(select(CallingAssignment).where(CallingAssignment.order_id == order.id, CallingAssignment.assignment_date == assignment_date)) if order else None
+        if not assignment or (user.role != "admin" and assignment.agent != user.display_name): rejected += 1; continue
+        digest = hashlib.sha256(f"{assignment.assignment_id}|{docket}|{disposition}|{remarks}".encode()).hexdigest()
+        if session.scalar(select(CallingAttempt).where(CallingAttempt.attempt_id == f"XLS-{digest}")): duplicates += 1; continue
+        session.add(CallingAttempt(attempt_id=f"XLS-{digest}", assignment_id=assignment.assignment_id, agent=assignment.agent, disposition=disposition, remarks=remarks, attempted_at=datetime.utcnow()))
+        assignment.status = "completed"; accepted += 1
+    session.commit()
     master = Path("1_Master_NDR/OCT - MONTH NDR.xlsx")
-    if not master.exists(): raise HTTPException(404, "Master NDR workbook not found")
-    result = reverse_sync_feedback(session, str(master), str(feedback_dir), date.today())
-    if result.get("accepted", 0) == 0 and result.get("duplicates", 0) > 0: raise HTTPException(409, "This calling file is already uploaded")
-    return {"uploaded": target.name, **result}
+    master_result = {}
+    if master.exists():
+        master_result = reverse_sync_feedback(session, str(master), str(feedback_dir), assignment_date)
+    return {"uploaded": target.name, "accepted": accepted, "rejected": rejected, "duplicates": duplicates, "master_sync": master_result}
 
 @app.get("/api/my-completed")
 def my_completed(authorization: str | None = Header(default=None), session: Session = Depends(db)):

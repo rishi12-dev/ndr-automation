@@ -264,7 +264,8 @@ def export_assignments(session: Session, assignments, path: str, girish_format: 
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     workbook = Workbook(); sheet = workbook.active; sheet.title = "Calling Sheet"
     agent_column = headers.index("Agent for NDR") + 1
-    sheet.append([None] * (len(headers))); sheet.cell(1, agent_column, date.today())
+    export_date = assignments[0].assignment_date if assignments else date.today()
+    sheet.append([None] * (len(headers))); sheet.cell(1, agent_column, export_date)
     sheet.append(headers)
     for row in rows: sheet.append(row)
     header_map = {name: index + 1 for index, name in enumerate(headers)}

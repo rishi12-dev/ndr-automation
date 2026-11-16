@@ -620,6 +620,7 @@ class Feedback(BaseModel):
 def feedback(payload: Feedback, authorization: str | None = Header(default=None), session: Session = Depends(db)):
     user = current_user(authorization, session)
     if not user or (user.role != "admin" and user.display_name != payload.agent): raise HTTPException(403, "Login identity does not match agent")
+    if payload.disposition.strip().casefold() == "other" and not payload.remarks.strip(): raise HTTPException(422, "Remarks are required when disposition is OTHER")
     if user.role != "admin" and (datetime.now().hour, datetime.now().minute) >= (18, 20): raise HTTPException(403, "Online feedback editing is closed after 6:20 PM")
     assignment = session.scalar(select(CallingAssignment).where(CallingAssignment.assignment_id == payload.assignment_id))
     if not assignment or assignment.agent != payload.agent: raise HTTPException(403, "Assignment ownership validation failed")
@@ -631,6 +632,7 @@ def feedback(payload: Feedback, authorization: str | None = Header(default=None)
 def edit_feedback(assignment_id: str, payload: Feedback, authorization: str | None = Header(default=None), session: Session = Depends(db)):
     user = current_user(authorization, session)
     if not user or (user.role != "admin" and user.display_name != payload.agent): raise HTTPException(403, "Login identity does not match agent")
+    if payload.disposition.strip().casefold() == "other" and not payload.remarks.strip(): raise HTTPException(422, "Remarks are required when disposition is OTHER")
     if user.role != "admin" and (datetime.now().hour, datetime.now().minute) >= (18, 20): raise HTTPException(403, "Feedback editing is closed after 6:20 PM")
     assignment = session.scalar(select(CallingAssignment).where(CallingAssignment.assignment_id == assignment_id))
     if not assignment or (user.role != "admin" and assignment.agent != user.display_name): raise HTTPException(403, "Assignment ownership validation failed")

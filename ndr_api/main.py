@@ -310,6 +310,12 @@ async def upload_my_assignments(file: UploadFile = File(...), authorization: str
         master_result = reverse_sync_feedback(session, str(master), str(feedback_dir), assignment_date)
     return {"uploaded": target.name, "accepted": accepted, "rejected": rejected, "duplicates": duplicates, "master_sync": master_result}
 
+@app.post("/api/my-assignments/upload-many")
+async def upload_many_assignments(files: list[UploadFile] = File(...), authorization: str | None = Header(default=None), session: Session = Depends(db)):
+    if not files: raise HTTPException(422, "Select at least one completed calling file")
+    results = [await upload_my_assignments(file, authorization, session) for file in files]
+    return {"files": results, "accepted": sum(item.get("accepted", 0) for item in results), "rejected": sum(item.get("rejected", 0) for item in results), "duplicates": sum(item.get("duplicates", 0) for item in results)}
+
 @app.get("/api/my-completed")
 def my_completed(authorization: str | None = Header(default=None), session: Session = Depends(db)):
     user = current_user(authorization, session)
@@ -323,6 +329,16 @@ def my_completed(authorization: str | None = Header(default=None), session: Sess
         if not order or not attempt: continue
         result.append({"assignment_id": assignment.assignment_id, "agent": assignment.agent, "docket_no": order.docket_no, "order_no": order.order_no, "customer_name": order.customer_name, "mobile": order.mobile, "disposition": attempt.disposition, "remarks": attempt.remarks, "attempted_at": attempt.attempted_at})
     return result
+
+@app.get("/api/admin/completed/export")
+def export_team_completed(authorization: str | None = Header(default=None), session: Session = Depends(db)):
+    user = current_user(authorization, session)
+    if not user or user.role != "admin": raise HTTPException(403, "Admin access required")
+    rows = session.scalars(select(CallingAssignment).where(CallingAssignment.assignment_date == working_date(), CallingAssignment.status == "completed")).all()
+    output_dir = Path(settings.output_dir); output_dir.mkdir(parents=True, exist_ok=True)
+    target = output_dir / f"Final_NDR_{working_date():%d-%m-%Y}.xlsx"
+    export_assignments(session, rows, str(target), girish_format=True, include_feedback=True)
+    return FileResponse(target, filename=target.name, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 @app.get("/api/dashboard")
 def dashboard(session: Session = Depends(db)):

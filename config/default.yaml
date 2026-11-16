@@ -1,0 +1,38 @@
+date_lookback_days: 7
+lookback_includes_today: true
+working_days: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+zones:
+  "Within Region": 4
+  "Within City": 4
+  "Within State": 5
+  "Rest of India": 7
+  "Special Zone": 7
+  "Unknown": 1
+zone_aliases:
+  Within Region: ["Zone B-Within Zone", "Zone B", Region, Metro-CHX, Within Region-CHX, "B-Within Zone", East, North]
+  Within City: ["Within City", "Intra city", "Zone A-Within City", "Zone A", Local, Within City-CHX, "Within Baroda", "A-Within City", City]
+  Within State: ["Intra state", "Intra-state", "ZONE C", "Within state", "Zone C1-M2M", "C-M2M"]
+  Rest of India: ["Zone D1-ROI", "Zone D", "D-ROI"]
+  Special Zone: ["Zone E-North East", "Zone F-Special"]
+agents:
+  Girish: {languages: [Hindi, Tamil], primary_couriers: [Delhivery]}
+  Pavi: {languages: [Hindi, Tamil, Telugu], primary_couriers: [Chennai Xpress, Professional Couriers]}
+  "Mohammed Zaffruddin": {languages: [Hindi, Tamil, Telugu], primary_couriers: [Chennai Xpress, Professional Couriers]}
+  "Saqlain Muhammad": {languages: [Hindi, Tamil], primary_couriers: []}
+  "Rubby Srinivasan": {languages: [Hindi, Punjabi], primary_couriers: []}
+  "Narayanaswamy K.V": {languages: [Malayalam, Hindi, Tamil, Bengali], primary_couriers: [DTDC]}
+columns:
+  warehouse: [Warehouse, warehouse]
+  order_no: [OrderNo, Order No, order_no]
+  docket_no: [Docketno, Docket No, Docket, tracking_number]
+  order_date: ["Order Date", order_date]
+  shipping_date: ["Shipping Date", ShippingDate, shipping_date]
+  customer_name: ["Customer Name", "Cx Name", customer_name]
+  mobile: ["Mobile Number", "Mobile No", mobile]
+  alternate: ["Alternate Number", "Alt No", alternate]
+  shipment: [Shipment, Courier, shipment]
+  pincode_zone: [PincodeZone, pincode_zone]
+  current_status: ["Current Status", current_status, Status]
+  pdd: [PDD, pdd]
+  courier_remark: ["Courier Remark", "Latest Courier Remark", courier_remark]
+  courier_attempts: ["Courier Attempts", Attempts, courier_attempts]

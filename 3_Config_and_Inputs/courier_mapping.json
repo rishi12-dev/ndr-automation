@@ -1,0 +1,16 @@
+{
+  "Delhivery": {
+    "key": ["Waybill", "Docketno", "Docket No"],
+    "pdd": ["PDD", "Promised Delivery Date"],
+    "remark": ["Latest Courier Remark", "Courier Remark", "Remarks"],
+    "attempts": ["Courier Attempts", "Attempts"],
+    "status": ["Courier Delivery Status", "Status"],
+    "scan_timestamp": ["Latest Scan Timestamp", "Scan Timestamp"],
+    "verified_source_columns": {"pdd": "PDD", "remark": "Latest Courier Remark", "attempts": "Courier Attempts"}
+  },
+  "DTDC": {"key": ["Docketno", "Docket No", "AWB"], "pdd": ["PDD"], "remark": ["Remarks", "Status"], "attempts": ["Attempts"], "status": ["Status"]},
+  "Chennai Xpress": {"key": ["Docketno", "Docket No", "AWB"], "pdd": ["PDD"], "remark": ["Remarks", "Status"], "attempts": ["Attempts"], "status": ["Status"]},
+  "Professional Couriers": {"key": ["Docketno", "Docket No", "AWB"], "pdd": ["PDD"], "remark": ["Remarks", "Status"], "attempts": ["Attempts"], "status": ["Status"]},
+  "Nandan": {"key": ["Docketno", "Docket No", "AWB"], "pdd": ["PDD"], "remark": ["Remarks", "Status"], "attempts": ["Attempts"], "status": ["Status"]},
+  "Pushpak": {"key": ["Docketno", "Docket No", "AWB"], "pdd": ["PDD"], "remark": ["Remarks", "Status"], "attempts": ["Attempts"], "status": ["Status"]}
+}

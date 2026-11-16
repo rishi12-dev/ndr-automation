@@ -1,0 +1,8 @@
+{
+  "Girish": {"languages": ["Hindi", "Tamil"], "couriers": ["Delhivery"], "active": true, "present": true, "capacity": 9999},
+  "Pavi": {"languages": ["Hindi", "Tamil", "Telugu"], "couriers": ["Chennai Xpress", "Professional Couriers"], "active": true, "present": true, "capacity": 9999},
+  "Mohammed Zaffruddin": {"languages": ["Hindi", "Tamil", "Telugu"], "couriers": ["Chennai Xpress", "Professional Couriers"], "active": true, "present": true, "capacity": 9999},
+  "Saqlain Muhammad": {"languages": ["Hindi", "Tamil"], "couriers": [], "active": true, "present": true, "capacity": 9999},
+  "Rubby Srinivasan": {"languages": ["Hindi", "Punjabi"], "couriers": [], "active": true, "present": true, "capacity": 9999},
+  "Narayanaswamy K.V": {"languages": ["Malayalam", "Hindi", "Tamil", "Bengali"], "couriers": ["DTDC"], "active": true, "present": true, "capacity": 9999}
+}

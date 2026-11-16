@@ -15,6 +15,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "httpx>=0.27,<1"]
 
+[tool.setuptools]
+packages = ["ndr_api", "config"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

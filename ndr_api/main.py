@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+from io import BytesIO
 from pathlib import Path
 from fastapi import FastAPI, Depends, File, UploadFile, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -362,15 +363,50 @@ async def upload_mis(files: list[UploadFile] = File(...), session: Session = Dep
     return {"files": results, "matched": sum(item.get("matched", 0) for item in results), "unmatched": sum(item.get("unmatched", 0) for item in results), "next_step": "Click Run today's automation after all MIS files finish uploading."}
 
 @app.post("/api/admin/import-manual-ndr")
-async def upload_manual_ndr(file: UploadFile = File(...), authorization: str | None = Header(default=None), session: Session = Depends(db)):
+async def upload_manual_ndr(file: UploadFile | None = File(default=None), files: list[UploadFile] = File(default=[]), authorization: str | None = Header(default=None), session: Session = Depends(db)):
     user = current_user(authorization, session)
     if not user or user.role != "admin": raise HTTPException(403, "Admin access required")
-    target = Path(settings.input_dir) / f"manual_{file.filename}"; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(await file.read())
-    frame = pd.read_excel(target, header=None, dtype=object)
+    uploads = list(files)
+    if file is not None: uploads.insert(0, file)
+    if not uploads: raise HTTPException(422, "Upload at least one manual NDR Excel file")
+    input_dir = Path(settings.input_dir); input_dir.mkdir(parents=True, exist_ok=True)
+    frames = []
+    filenames = []
+    for upload in uploads:
+        content = await upload.read()
+        if not content: continue
+        filename = upload.filename or "manual-ndr.xlsx"
+        (input_dir / f"manual_{filename}").write_bytes(content)
+        frames.append(pd.read_excel(BytesIO(content), header=None, dtype=object))
+        filenames.append(filename)
+    if not frames: raise HTTPException(422, "Uploaded manual NDR files are empty")
+    frame = frames[0]
     header_row = next((index for index in range(min(5, len(frame))) if {str(value).strip().casefold() for value in frame.iloc[index].tolist()} >= {"docketno", "agent for ndr"}), None)
     if header_row is None:
         header_row = next((index for index in range(min(5, len(frame))) if frame.iloc[index].astype(str).str.casefold().eq("docketno").any()), None)
     if header_row is None: raise HTTPException(422, "Manual NDR must contain a Docketno column")
+    if len(frames) > 1:
+        combined_rows = [frame]
+        canonical_headers = [str(value).strip().casefold() for value in frame.iloc[header_row].tolist()]
+        for extra in frames[1:]:
+            extra_header = next((index for index in range(min(5, len(extra))) if frame.iloc[header_row].astype(str).str.strip().str.casefold().tolist() == extra.iloc[index].astype(str).str.strip().str.casefold().tolist()), None)
+            extra_header = extra_header if extra_header is not None else header_row
+            extra_headers = [str(value).strip().casefold() for value in extra.iloc[extra_header].tolist()]
+            target_indexes = {}
+            for index, value in enumerate(canonical_headers):
+                target_indexes.setdefault(value, []).append(index)
+            normalized_rows = []
+            for _, extra_row in extra.iloc[extra_header + 1 :].iterrows():
+                normalized = [None] * len(canonical_headers)
+                seen_headers = {}
+                for index, value in enumerate(extra_headers):
+                    occurrence = seen_headers.get(value, 0)
+                    seen_headers[value] = occurrence + 1
+                    matches = target_indexes.get(value, [])
+                    if occurrence < len(matches) and index < len(extra_row): normalized[matches[occurrence]] = extra_row.iloc[index]
+                normalized_rows.append(normalized)
+            combined_rows.append(pd.DataFrame(normalized_rows, columns=frame.columns))
+        frame = pd.concat(combined_rows, ignore_index=True)
     headers = [str(value).strip().casefold() for value in frame.iloc[header_row].tolist()]
     base_columns = {}
     for index, value in enumerate(headers):
@@ -401,7 +437,7 @@ async def upload_manual_ndr(file: UploadFile = File(...), authorization: str | N
     orders = {normalize_docket(item.docket_no): item for item in session.scalars(select(Order)).all()}
     orders.update({normalize_docket(item.order_no): item for item in session.scalars(select(Order)).all() if item.order_no})
     manual_assignments = session.scalars(select(CallingAssignment).where(CallingAssignment.source == "manual-ndr-upload")).all()
-    current_assignments = session.scalars(select(CallingAssignment).where(CallingAssignment.assignment_date == date.today())).all()
+    current_assignments = session.scalars(select(CallingAssignment).where(CallingAssignment.assignment_date == assignment_date)).all()
     candidate_assignments = {item.assignment_id: item for item in [*manual_assignments, *current_assignments]}
     feedback_assignment_ids = {item.assignment_id for item in session.scalars(select(CallingAttempt).where(CallingAttempt.assignment_id.in_(candidate_assignments))).all()} if candidate_assignments else set()
     assignments_to_remove = {assignment_id: item for assignment_id, item in candidate_assignments.items() if assignment_id not in feedback_assignment_ids and item.status != "completed"}
@@ -429,7 +465,12 @@ async def upload_manual_ndr(file: UploadFile = File(...), authorization: str | N
         identifier = normalize_docket(row.iloc[docket_column]) if docket_column is not None else (normalize_docket(row.iloc[order_column]) if order_column is not None else "")
         order = orders.get(identifier)
         if not order:
-            unmatched += 1; continue
+            docket_value = text_cell(row, "docketno") or text_cell(row, "orderno")
+            if not docket_value:
+                unmatched += 1; continue
+            order = Order(order_no=text_cell(row, "orderno") or docket_value, docket_no=docket_value)
+            session.add(order); session.flush()
+            orders[normalize_docket(docket_value)] = order
         order.warehouse = text_cell(row, "warehouse") or order.warehouse
         order.order_no = text_cell(row, "orderno") or order.order_no
         order.order_date = date_cell(row, "order date") or order.order_date
@@ -455,8 +496,8 @@ async def upload_manual_ndr(file: UploadFile = File(...), authorization: str | N
         session.add(CallingAssignment(assignment_id=f"CALL-{assignment_date:%Y%m%d}-{sequence:04d}", order_id=order.id, agent=agent, assignment_date=assignment_date, source="manual-ndr-upload"))
         existing.add(order.id); sequence += 1; accepted += 1
     session.commit()
-    set_manual_mode(True, file.filename or "manual NDR", assignment_date)
-    return {"date": assignment_date, "selected_date_block": assignment_date, "accepted": accepted, "replaced": len(current_assignment_ids), "skipped": skipped, "unmatched": unmatched, "missing_agent": missing_agent, "mode": "manual-only"}
+    set_manual_mode(True, ", ".join(filenames) or "manual NDR", assignment_date)
+    return {"date": assignment_date, "selected_date_block": assignment_date, "accepted": accepted, "replaced": len(current_assignment_ids), "skipped": skipped, "unmatched": unmatched, "missing_agent": missing_agent, "files": filenames, "mode": "manual-only"}
 
 @app.post("/api/run-automation")
 def run_automation(authorization: str | None = Header(default=None), session: Session = Depends(db)):

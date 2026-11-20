@@ -606,7 +606,7 @@ def assignments(agent: str, session: Session = Depends(db)):
         status = str(order.current_status or "").casefold()
         manual_assignment = assignment.source == "manual-ndr-upload"
         eligible_status = "shipped" in status and not any(token in status for token in ("delivered", "return", "refund", "cancel", "self collect", "rto"))
-        if order and (manual_assignment or eligible_status): rows.append({"assignment_id": assignment.assignment_id, "agent": agent, "order_id": order.id, "docket_no": order.docket_no, "order_no": order.order_no, "customer_name": order.customer_name, "mobile": order.mobile, "alternate": order.alternate, "dx_mail": order.dx_mail, "cx_mail": order.cx_mail, "shipping_date": order.shipping_date, "courier_remark": order.courier_remark, "shipment": order.shipment})
+        if order and (manual_assignment or eligible_status): rows.append({"assignment_id": assignment.assignment_id, "agent": agent, "order_id": order.id, "docket_no": order.docket_no, "order_no": order.order_no, "order_date": order.order_date, "warehouse": order.warehouse, "customer_name": order.customer_name, "mobile": order.mobile, "alternate": order.alternate, "dx_mail": order.dx_mail, "cx_mail": order.cx_mail, "shipping_date": order.shipping_date, "courier_remark": order.courier_remark, "shipment": order.shipment})
     return rows
 
 class RTOReceiveUpdate(BaseModel):
